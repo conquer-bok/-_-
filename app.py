@@ -98,7 +98,8 @@ def main():
             st.write(string_values_local)
 
             st.session_state['mid_ID_idx'] = get_mid_ID_idx(st.session_state['df'], first_idx)
-            st.session_state['mid_ID_idx_local'] = get_mid_ID_idx(st.session_state['df_local'], first_idx)
+            # st.session_state['mid_ID_idx_local'] = get_mid_ID_idx(st.session_state['df_local'], first_idx)
+            st.session_state['mid_ID_idx_local'] = st.session_state['mid_ID_idx']
 
             st.session_state['df'].iloc[first_idx[0]:, first_idx[1]:] = st.session_state['df'].iloc[first_idx[0]:, first_idx[1]:].apply(pd.to_numeric, errors='coerce')
             st.session_state['df_local'].iloc[first_idx[0]:, first_idx[1]:] = st.session_state['df_local'].iloc[first_idx[0]:, first_idx[1]:].apply(pd.to_numeric, errors='coerce')
@@ -106,6 +107,8 @@ def main():
                 st.session_state['df']=st.session_state['df'].iloc[:-1]
 
     if 'df' in st.session_state:
+
+
         uploaded_matrix_X = get_submatrix_withlabel(st.session_state['df'], first_idx[0], first_idx[1], st.session_state['mid_ID_idx'][0], st.session_state['mid_ID_idx'][1], first_idx, numberoflabel=number_of_label)
         uploaded_matrix_R = get_submatrix_withlabel(st.session_state['df'], st.session_state['mid_ID_idx'][0]+1, first_idx[1], st.session_state['df'].shape[0]-1, st.session_state['mid_ID_idx'][1], first_idx, numberoflabel=number_of_label)
         uploaded_matrix_C = get_submatrix_withlabel(st.session_state['df'], first_idx[0], st.session_state['mid_ID_idx'][1]+1, st.session_state['mid_ID_idx'][0], st.session_state['df'].shape[1]-1, first_idx, numberoflabel=number_of_label)
@@ -293,12 +296,18 @@ def main():
         col1, col2, col3 = st.columns(3)
         with col1:
             if st.button('0인 행(열) 삭제'):
+                # removed_indices is returned as 4th element (functions.py updated)
                 result = remove_zero_series(st.session_state['df_editing'], first_idx, st.session_state['mid_ID_idx'])
                 st.session_state['df_editing'] = result[0]
                 st.session_state['data_editing_log'] += (result[1] + '\n\n')
                 st.session_state['mid_ID_idx'] = result[2]
+                removed_indices = result[3]
 
-                st.session_state["edit_ops"].append({"type": "remove_zero"})
+                # Use 'drop_indices' to enforce same deletion on Local
+                st.session_state["edit_ops"].append({
+                    "type": "drop_indices", 
+                    "indices": removed_indices
+                })
                 st.session_state.show_edited = False
         with col2:
              if st.button('-값 절반으로 줄이기'):
@@ -327,6 +336,7 @@ def main():
                         transfer_to_new_sector_fn=transfer_to_new_sector,
                         remove_zero_series_fn=remove_zero_series,
                         reduce_negative_values_fn=reduce_negative_values,
+                        drop_rows_and_cols_fn=drop_rows_and_cols, # New
                         return_log=False,
                         batch_apply_fn=apply_batch_edit
                     )
@@ -438,11 +448,11 @@ def main():
         
         tmp = st.session_state['df_for_leontief_without_label'].copy()
         tmp = tmp.apply(pd.to_numeric, errors='coerce')
-        tmp = tmp.divide(st.session_state['normalization_denominator_replaced'], axis=1) ##d
+        tmp = tmp.divide(st.session_state['normalization_denominator_replaced'].values, axis=1) ##d
 
         tmp2 = st.session_state['df_for_r_without_label'].copy()
         tmp2 = tmp2.apply(pd.to_numeric, errors='coerce')
-        tmp2 = tmp2.divide(st.session_state['normalization_denominator_replaced'], axis=1) ##d
+        tmp2 = tmp2.divide(st.session_state['normalization_denominator_replaced'].values, axis=1) ##d
     
         st.session_state['df_for_leontief_with_label'].iloc[2:, 2:] = tmp
         st.session_state['df_for_r_with_label'].iloc[2:, 2:] = tmp2
