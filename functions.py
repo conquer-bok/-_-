@@ -315,12 +315,13 @@ def get_mid_ID_idx(df, first_idx):
         col_cnt += 1
         col_sum += v
     
-    if row_cnt == col_cnt:
-        size = row_cnt
-    else:
-        size = max(row_cnt, col_cnt)
-
-    return (first_idx[0]+size, first_idx[1]+size)
+    # row_cnt is calculated by iterating the first row -> it is the number of COLUMNS (Width)
+    # col_cnt is calculated by iterating the first column -> it is the number of ROWS (Height)
+    
+    # Return tuple of (End Row Index, End Col Index)
+    # End Row Index = Start Row + Height (col_cnt)
+    # End Col Index = Start Col + Width (row_cnt)
+    return (first_idx[0]+col_cnt, first_idx[1]+row_cnt)
 
 def insert_row_and_col(df, first_idx, mid_ID_idx, code, name, num_of_label):
     df_editing = df.copy()
@@ -381,6 +382,29 @@ def remove_zero_series(df, first_idx, mid_ID_idx):
     count = len(zero_col_indices)
     msg = f'{count}개의 행(열)이 삭제되었습니다.'
     mid_ID_idx = (mid_ID_idx[0] - count, mid_ID_idx[1] - count)
+    return df_editing, msg, mid_ID_idx, zero_row_indices
+
+def drop_rows_and_cols(df, first_idx, mid_ID_idx, zero_row_indices):
+    """
+    특정 인덱스(zero_row_indices)에 해당하는 행과 열을 강제 삭제
+    """
+    df_editing = df.copy()
+    zero_col_indices = list(map(lambda x: x - first_idx[0] + first_idx[1], zero_row_indices))
+    
+    # 존재하지 않는 인덱스는 무시 (안전장치)
+    valid_rows = [x for x in zero_row_indices if x in df_editing.index]
+    valid_cols = [x for x in zero_col_indices if x in df_editing.columns]
+    
+    df_editing.drop(valid_rows, inplace=True)
+    df_editing.drop(valid_cols, inplace=True, axis=1)
+    
+    df_editing.columns = range(df_editing.shape[1])
+    df_editing.index = range(df_editing.shape[0])
+    
+    count = len(valid_rows)
+    msg = f'동기화: {count}개의 행(열)이 강제 삭제되었습니다.'
+    mid_ID_idx = (mid_ID_idx[0] - count, mid_ID_idx[1] - count)
+    
     return df_editing, msg, mid_ID_idx
 
 def donwload_data(df, file_name):
@@ -960,7 +984,7 @@ def build_leontief_outputs(
     # 2) A(tmp) 만들기: 숫자 변환 + 열 정규화 (너 코드 동일)
     tmp = df_without_label.copy()
     tmp = tmp.apply(pd.to_numeric, errors="coerce")
-    tmp = tmp.divide(normalization_denominator_replaced, axis=1)
+    tmp = tmp.divide(normalization_denominator_replaced.values, axis=1)
 
     # A를 with_label에 반영 (너 코드 동일)
     df_with_label.iloc[2:, 2:] = tmp
@@ -1151,7 +1175,9 @@ def replay_edit_ops_on_df(
     transfer_to_new_sector_fn,
     remove_zero_series_fn,
     reduce_negative_values_fn,
-    batch_apply_fn=None,          # apply_batch_edit 같은 함수 주입
+
+    drop_rows_and_cols_fn=None, # New dependency
+    batch_apply_fn=None,
     copy_ids: bool = False,       # ids_simbol 공유 싫으면 True
     return_log: bool = True,      # 디버깅/기록용 로그 반환
 ):
@@ -1235,6 +1261,21 @@ def replay_edit_ops_on_df(
             result = remove_zero_series_fn(df, first_idx, mid)
             df, mid = result[0], result[2]
 
+            if return_log and len(result) >= 2 and result[1]:
+                log_lines.append(str(result[1]).strip())
+
+        # -------------------------
+        # X) 특정 인덱스 삭제 (drop_indices) - 동기화용
+        # -------------------------
+        elif t == "drop_indices":
+            if "indices" not in op:
+                raise KeyError(f"[op #{i} drop_indices] missing key: 'indices'")
+            if drop_rows_and_cols_fn is None:
+                raise ValueError("[drop_indices] requires drop_rows_and_cols_fn")
+                
+            result = drop_rows_and_cols_fn(df, first_idx, mid, op["indices"])
+            df, mid = result[0], result[2]
+            
             if return_log and len(result) >= 2 and result[1]:
                 log_lines.append(str(result[1]).strip())
 
