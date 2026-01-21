@@ -325,29 +325,23 @@ def main():
                 st.session_state.show_edited = True
                 
                 if "df_local" in st.session_state:
-                    if mode == 'Korea(1990~2005)':
-                         # [FIX] For 'Korea(1990~2005)', Local data is invalid/unused. 
-                         # Just copy Main Edit result to Local to prevent crashes in replay_edit_ops_on_df (dimension mismatch)
-                         st.session_state["df_editing_local"] = st.session_state['df_editing'].copy()
-                         st.session_state["mid_ID_idx_local"] = st.session_state["mid_ID_idx"]
-                    else:
-                        df_local_new, mid_local_new, ids_local_new = replay_edit_ops_on_df(
-                            df_base=st.session_state["df_editing_local"],
-                            mid_ID_idx_base=st.session_state["mid_ID_idx_local"],
-                            ids_simbol_base=st.session_state.ids_simbol,   # 공유 싫으면 local dict 따로 두기
-                            ops=st.session_state["edit_ops"],
-                            first_idx=first_idx,
-                            number_of_label=number_of_label,
-                            insert_row_and_col_fn=insert_row_and_col,
-                            transfer_to_new_sector_fn=transfer_to_new_sector,
-                            remove_zero_series_fn=remove_zero_series,
-                            reduce_negative_values_fn=reduce_negative_values,
-                            drop_rows_and_cols_fn=drop_rows_and_cols, # New
-                            return_log=False,
-                            batch_apply_fn=apply_batch_edit
-                        )
-                        st.session_state["df_editing_local"] = df_local_new
-                        st.session_state["mid_ID_idx_local"] = mid_local_new
+                    df_local_new, mid_local_new, ids_local_new = replay_edit_ops_on_df(
+                        df_base=st.session_state["df_editing_local"],
+                        mid_ID_idx_base=st.session_state["mid_ID_idx_local"],
+                        ids_simbol_base=st.session_state.ids_simbol,   # 공유 싫으면 local dict 따로 두기
+                        ops=st.session_state["edit_ops"],
+                        first_idx=first_idx,
+                        number_of_label=number_of_label,
+                        insert_row_and_col_fn=insert_row_and_col,
+                        transfer_to_new_sector_fn=transfer_to_new_sector,
+                        remove_zero_series_fn=remove_zero_series,
+                        reduce_negative_values_fn=reduce_negative_values,
+                        drop_rows_and_cols_fn=drop_rows_and_cols, # New
+                        return_log=False,
+                        batch_apply_fn=apply_batch_edit
+                    )
+                    st.session_state["df_editing_local"] = df_local_new
+                    st.session_state["mid_ID_idx_local"] = mid_local_new
 
                     st.session_state["df_edited_local"] = st.session_state['df_editing_local'].copy()
 
@@ -442,11 +436,10 @@ def main():
 
         
     if 'df_for_leontief' in st.session_state and st.session_state.show_edited:
-        if mode != 'Korea(1990~2005)':
-            st.session_state["df_for_local_leontief_with_label"] , st.session_state["df_for_local_leontief_without_label"]= build_leontief_outputs(
-            st.session_state["df_for_leontief_local"],
-            st.session_state["normalization_denominator_replaced"],
-        ) # for local 
+        st.session_state["df_for_local_leontief_with_label"] , st.session_state["df_for_local_leontief_without_label"]= build_leontief_outputs(
+        st.session_state["df_for_leontief_local"],
+        st.session_state["normalization_denominator_replaced"],
+    ) # for local 
 
         st.session_state['df_for_leontief_with_label'] = st.session_state['df_for_leontief'].copy()
         st.session_state['df_for_leontief_without_label'] = st.session_state['df_for_leontief_with_label'].iloc[2:, 2:].copy()
@@ -535,11 +528,6 @@ def main():
 
         st.session_state['df_for_leontief_with_label']=st.session_state['df_for_leontief_with_label'].iloc[:-1, :-1]
         st.session_state['df_for_leontief_without_label'] = st.session_state['df_for_leontief_with_label'].iloc[2:, 2:].copy()
-
-        # [FIX] For 'Korea(1990~2005)', use Main Leontief result for Local as well (bypass local calculation)
-        if mode == 'Korea(1990~2005)':
-            st.session_state["df_for_local_leontief_with_label"] = st.session_state['df_for_leontief_with_label'].copy()
-            st.session_state["df_for_local_leontief_without_label"] = st.session_state['df_for_leontief_without_label'].copy()
 
         # 2025-12-26 추가 (GDP 및 부가가치 유발 효과)
         # L, y, V 준비
